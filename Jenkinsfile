@@ -1,34 +1,35 @@
-pipeline {
-    agent any
+pipeline{
     
-    tools {
-        maven 'local_maven'
-    }
-    parameters {
-         string(name: 'staging_server', defaultValue: '13.232.37.20', description: 'Remote Staging Server')
-    }
+agent any
 
 stages{
-        stage('Build'){
-            steps {
-                sh 'mvn clean package'
-            }
-            post {
-                success {
-                    echo 'Archiving the artifacts'
-                    archiveArtifacts artifacts: '**/target/*.war'
-                }
-            }
-        }
-
-        stage ('Deployments'){
-            parallel{
-                stage ("Deploy to Staging"){
-                    steps {
-                        sh "scp -v -o StrictHostKeyChecking=no **/*.war root@${params.staging_server}:/opt/tomcat/webapps/"
-                    }
-                }
-            }
+    stage('Clone The Project'){
+        steps{
+            git branch: 'release/2025.07.19', url: 'git@github.com:srinfotechbatch2/devOpsWeb.git'
         }
     }
+    
+    stage('Build'){
+        steps{
+             bat 'mvn clean install'
+        }
+    }
+     stage('Test'){
+        steps{
+             bat 'mvn test'
+        }
+    }
+  
+     stage('published the Artifacts'){
+        steps{
+            archiveArtifacts artifacts: 'target/*.war', followSymlinks: false
+        }
+    }
+    
+    stage('Deploy to Tomcat Server'){
+        steps{
+            deploy adapters: [tomcat9(alternativeDeploymentContext: '', credentialsId: 'tomcatcredential', path: '', url: 'http://localhost:8080')], contextPath: 'SRInfotechWebApplication', war: 'target/*.war'
+        }
+    }
+}
 }
